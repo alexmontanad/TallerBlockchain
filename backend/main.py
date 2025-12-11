@@ -10,6 +10,7 @@ from typing import List, Dict
 import hashlib
 import json
 import time
+import os
 
 # Importar blockchain PRIMERO
 from blockchain import Blockchain, Bloque
