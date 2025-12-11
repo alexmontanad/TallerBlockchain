@@ -14,7 +14,12 @@ export default defineConfig({
   },
   vite: {
     server: {
-      allowedHosts: true, // Permitir todos los hosts
+      allowedHosts: true, // Para desarrollo
+    },
+    preview: {
+      allowedHosts: true, // ✅ Para producción (Railway)
+      host: true,
+      port: parseInt(process.env.PORT || "4321"),
     },
   },
   output: "static",
