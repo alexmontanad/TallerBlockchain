@@ -1,9 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-API FastAPI para Sistema Blockchain
-"""
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict
@@ -12,17 +7,35 @@ import json
 import time
 import os
 
-# Importar blockchain PRIMERO
-from blockchain import Blockchain, Bloque
-
-# LUEGO declarar el diccionario
-blockchains: Dict[str, Blockchain] = {}
-
+# Importar blockchain
+from blockchain import Blockchain, Bloque, INDICE_POLINOMIO
 
 app = FastAPI(title="Blockchain API", version="1.0.0")
 
-# CORS para Astro (puerto 4321)
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:4321").split(",")
+# ============== CONFIGURACIÓN DE CORS ==============
+# 🔧 Detecta automáticamente si estás en local o producción
+def get_allowed_origins():
+    """Obtiene los orígenes permitidos según el entorno"""
+    # Variable de entorno de Railway (si existe)
+    env_origins = os.getenv("ALLOWED_ORIGINS", "")
+    
+    if env_origins:
+        # Producción: usar variable de Railway
+        origins = env_origins.split(",")
+        print(f"🌐 CORS (Producción): {origins}")
+        return origins
+    else:
+        # Local: permitir localhost
+        origins = [
+            "http://localhost:4321",
+            "http://localhost:3000",
+            "http://127.0.0.1:4321"
+        ]
+        print(f"🏠 CORS (Local): {origins}")
+        return origins
+
+allowed_origins = get_allowed_origins()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -581,18 +594,32 @@ def validar_cadena_completa(request: dict):
 @app.post("/blockchain/{blockchain_id}/descifrar-bloque/{bloque_index}")
 def descifrar_bloque(blockchain_id: str, bloque_index: int):
     """Descifra los datos de un bloque específico"""
-    if blockchain_id not in blockchains:
-        raise HTTPException(status_code=404, detail="Blockchain not found")
-    
-    bc = blockchains[blockchain_id]
-    
-    if bloque_index >= len(bc.cadena):
-        raise HTTPException(status_code=404, detail="Bloque no encontrado")
-    
-    bloque = bc.cadena[bloque_index]
-    
     try:
+        print(f"\n🔓 Descifrar bloque solicitado:")
+        print(f"  Blockchain ID: {blockchain_id}")
+        print(f"  Bloque index: {bloque_index}")
+        
+        if blockchain_id not in blockchains:
+            print(f"  ❌ Blockchain no encontrada")
+            raise HTTPException(status_code=404, detail="Blockchain not found")
+        
+        bc = blockchains[blockchain_id]
+        print(f"  ✅ Blockchain encontrada: {bc.nombre_proyecto}")
+        print(f"  Total bloques: {len(bc.cadena)}")
+        
+        if bloque_index >= len(bc.cadena):
+            print(f"  ❌ Índice {bloque_index} fuera de rango")
+            raise HTTPException(status_code=404, detail="Bloque no encontrado")
+        
+        bloque = bc.cadena[bloque_index]
+        print(f"  ✅ Bloque obtenido - Etapa: {bloque.etapa_actual}")
+        print(f"  Datos cifrados (hex): {bloque.datos_cifrados[:64]}...")
+        
+        # Intentar descifrar
+        print(f"  🔄 Intentando descifrar...")
         datos_descifrados = bloque.descifrar_bloque()
+        print(f"  ✅ Descifrado exitoso")
+        print(f"  Datos: {str(datos_descifrados)[:100]}...")
         
         return {
             "success": True,
@@ -608,7 +635,12 @@ def descifrar_bloque(blockchain_id: str, bloque_index: int):
                 {"type": "info", "message": f"🔑 Datos recuperados: {len(str(datos_descifrados))} caracteres"}
             ]
         }
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"  ❌ Error al descifrar: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error al descifrar: {str(e)}")
 
 

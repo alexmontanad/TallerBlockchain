@@ -10,17 +10,27 @@ export default defineConfig({
     }),
   ],
   server: {
+    port: 4321,
     host: true,
   },
+
+  // Configuración de preview (producción local)
+  preview: {
+    port: 8080,
+    host: true,
+  },
+
+  // Vite config para Railway
   vite: {
     server: {
-      allowedHosts: true, // Para desarrollo
+      host: "0.0.0.0",
     },
     preview: {
-      allowedHosts: true, // ✅ Para producción (Railway)
-      host: true,
-      port: parseInt(process.env.PORT || "4321"),
+      host: "0.0.0.0",
+      port: 8080,
+      strictPort: false,
     },
   },
+
   output: "static",
 });
