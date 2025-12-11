@@ -25,6 +25,33 @@ const BlockchainGUI = () => {
   };
   const [validandoAutomaticamente, setValidandoAutomaticamente] = useState(false);
   const [blockchainFraude, setBlockchainFraude] = useState([]);
+  const [bloqueParaDescifrar, setBloqueParaDescifrar] = useState(0);
+  const [datosDescifrados, setDatosDescifrados] = useState(null);
+  const [cargandoDescifrado, setCargandoDescifrado] = useState(false);
+
+  const descifrarBloqueAES = async () => {
+    setCargandoDescifrado(true);
+    addLog(`🔓 Descifrando bloque #${bloqueParaDescifrar}...`, 'info');
+
+    try {
+      const response = await fetch(`${API_URL}/blockchain/${blockchainId}/descifrar-bloque/${bloqueParaDescifrar}`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDatosDescifrados(data);
+        data.logs.forEach(log => addLog(log.message, log.type));
+        addLog(`✅ Descifrado completado - ${Object.keys(data.datos_descifrados).length} campos recuperados`, 'success');
+      }
+    } catch (error) {
+      addLog(`❌ Error al descifrar: ${error.message}`, 'error');
+    } finally {
+      setCargandoDescifrado(false);
+    }
+  };
+
 
   // Effect para calcular hash en tiempo real
   useEffect(() => {
@@ -880,6 +907,14 @@ const BlockchainGUI = () => {
           >
             <AlertOctagon className="w-4 h-4 inline mr-2" />
             Simulador de Fraude
+          </button>
+          <button
+            onClick={() => setActiveTab('aes')}
+            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${activeTab === 'fraud' ? 'border-b-2 border-red-400 text-red-400' : 'text-gray-400 hover:text-white'
+              } ${!blockchain && 'opacity-50 cursor-not-allowed'}`}
+          >
+            <Lock className="w-5 h-5" />
+            Cifrado AES
           </button>
           <button
             onClick={() => setActiveTab('logs')}
@@ -1935,6 +1970,150 @@ const BlockchainGUI = () => {
               ))}
             </div>
           )}
+
+          {/* TAB: DEMO AES */}
+          {activeTab === 'aes' && blockchain && blocks.length > 0 && (
+            <div className="space-y-6">
+              <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-8 shadow-2xl border border-slate-700">
+                <div className="flex items-center gap-3 mb-6">
+                  <Lock className="w-8 h-8 text-purple-400" />
+                  <div>
+                    <h2 className="text-2xl font-bold">Demostración de Cifrado AES-128</h2>
+                    <p className="text-sm text-slate-400">
+                      Cifrado de transacciones con algoritmo AES propietario (Polinomio índice 23)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Selector de bloque */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-2 text-slate-300">
+                    Seleccionar Bloque para Descifrar
+                  </label>
+                  <select
+                    value={bloqueParaDescifrar}
+                    onChange={(e) => setBloqueParaDescifrar(parseInt(e.target.value))}
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    {blocks.map((block, idx) => (
+                      <option key={idx} value={idx}>
+                        Bloque #{idx} - Etapa {block.etapa + 1}: {ETAPAS[block.etapa]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={descifrarBloqueAES}
+                  disabled={cargandoDescifrado}
+                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-bold text-lg transition-all shadow-lg hover:shadow-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {cargandoDescifrado ? (
+                    <>⏳ Descifrando...</>
+                  ) : (
+                    <>
+                      <Lock className="w-5 h-5" />
+                      Descifrar con AES-128
+                    </>
+                  )}
+                </button>
+
+                {/* Resultado del descifrado */}
+                {datosDescifrados && (
+                  <div className="mt-6 space-y-4">
+                    {/* Datos Cifrados */}
+                    <div className="bg-red-900/30 border border-red-500 rounded-lg p-4">
+                      <h3 className="font-bold mb-2 text-red-400 flex items-center gap-2">
+                        <Lock className="w-5 h-5" />
+                        🔒 Datos Cifrados (Hexadecimal)
+                      </h3>
+                      <p className="font-mono text-xs text-red-300 break-all bg-slate-900/50 p-3 rounded">
+                        {datosDescifrados.datos_cifrados_hex}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-2">
+                        Algoritmo: {datosDescifrados.algoritmo}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Longitud total: {datosDescifrados.longitud_cifrado} caracteres hexadecimales
+                      </p>
+                    </div>
+
+                    {/* Datos Descifrados */}
+                    <div className="bg-green-900/30 border border-green-500 rounded-lg p-4">
+                      <h3 className="font-bold mb-2 text-green-400 flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5" />
+                        🔓 Datos Descifrados (JSON Original)
+                      </h3>
+                      <pre className="font-mono text-xs text-green-300 bg-slate-900/50 p-3 rounded overflow-x-auto">
+                        {JSON.stringify(datosDescifrados.datos_descifrados, null, 2)}
+                      </pre>
+                    </div>
+
+                    {/* Comparación */}
+                    <div className="bg-blue-900/30 border border-blue-500 rounded-lg p-4">
+                      <h3 className="font-bold mb-2 text-blue-400">
+                        📊 Comparación de Datos
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-slate-400 mb-1">Código Original:</p>
+                          <p className="font-mono text-xs bg-slate-900/50 p-2 rounded truncate">
+                            {datosDescifrados.datos_descifrados.codigo?.substring(0, 50)}...
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 mb-1">Etapa:</p>
+                          <p className="font-mono text-xs bg-slate-900/50 p-2 rounded">
+                            {datosDescifrados.datos_descifrados.etapa} - {ETAPAS[datosDescifrados.datos_descifrados.etapa]}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-slate-400 mb-1">Observaciones Descifradas:</p>
+                          <ul className="space-y-1">
+                            {datosDescifrados.datos_descifrados.observaciones?.map((obs, idx) => (
+                              <li key={idx} className="font-mono text-xs bg-slate-900/50 p-2 rounded">
+                                {idx + 1}. {obs}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Información técnica */}
+                    <div className="bg-purple-900/30 border border-purple-500 rounded-lg p-4">
+                      <h3 className="font-bold mb-2 text-purple-400">
+                        🔐 Información Técnica del Cifrado
+                      </h3>
+                      <ul className="text-sm text-slate-300 space-y-2">
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span><strong>Algoritmo:</strong> AES-128 con polinomio irreducible propietario (Taller 4)</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span><strong>Modo:</strong> ECB (Electronic Codebook) con padding PKCS#7</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span><strong>Clave:</strong> 128 bits (16 bytes) hardcodeada</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span><strong>Polinomio:</strong> Calculado a partir de códigos de grupo: [20242678042, 20242678015, 20242678026]</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span><strong>Datos cifrados:</strong> Código, etapa, fecha, y todas las observaciones del bloque</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
 
 
           {activeTab === 'logs' && blockchain && (

@@ -578,6 +578,40 @@ def validar_cadena_completa(request: dict):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/blockchain/{blockchain_id}/descifrar-bloque/{bloque_index}")
+def descifrar_bloque(blockchain_id: str, bloque_index: int):
+    """Descifra los datos de un bloque específico"""
+    if blockchain_id not in blockchains:
+        raise HTTPException(status_code=404, detail="Blockchain not found")
+    
+    bc = blockchains[blockchain_id]
+    
+    if bloque_index >= len(bc.cadena):
+        raise HTTPException(status_code=404, detail="Bloque no encontrado")
+    
+    bloque = bc.cadena[bloque_index]
+    
+    try:
+        datos_descifrados = bloque.descifrar_bloque()
+        
+        return {
+            "success": True,
+            "bloque_index": bloque_index,
+            "datos_cifrados_hex": bloque.datos_cifrados[:128] + "...",
+            "datos_descifrados": datos_descifrados,
+            "algoritmo": f"AES-128 ECB (Polinomio índice {INDICE_POLINOMIO})",
+            "longitud_cifrado": len(bloque.datos_cifrados),
+            "logs": [
+                {"type": "info", "message": f"🔓 Descifrando bloque #{bloque_index}..."},
+                {"type": "success", "message": f"✅ AES-128 descifrado exitosamente"},
+                {"type": "info", "message": f"📊 Polinomio: {INDICE_POLINOMIO}"},
+                {"type": "info", "message": f"🔑 Datos recuperados: {len(str(datos_descifrados))} caracteres"}
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al descifrar: {str(e)}")
+
+
 
 # ============== SERIALIZACIÓN ==============
 def serialize_block(bloque: Bloque, index: int):
